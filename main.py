@@ -5,6 +5,7 @@ API endpoints for scraping Amazon product information
 """
 
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, HttpUrl, Field
 from typing import Optional
@@ -26,6 +27,15 @@ app = FastAPI(
     title="Amazon Price Scraper API",
     description="API for scraping Amazon product information",
     version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Thread pool for running blocking scraper operations

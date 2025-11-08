@@ -2,11 +2,27 @@ import { useState } from 'react'
 
 function SearchBar() {
   const [url, setUrl] = useState('')
+  const [scrapeResults, setScrapeResults] = useState(null)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('URL to scrape:', url)
-    // TODO: Call API endpoint
+
+    // Call API endpoint
+    try {
+      const response = await fetch('http://localhost:8000/api/scrape', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url }),
+      })
+
+      const data = await response.json()
+      setScrapeResults(data)
+    } catch (error) {
+      console.error('Error calling API:', error)
+      setScrapeResults({ error: error.message })
+    }
   }
 
   return (
@@ -45,6 +61,18 @@ function SearchBar() {
           Ejemplo: https://www.amazon.com/dp/B07RJ18VMF
         </p>
       </form>
+
+      {/* Results Display */}
+      {scrapeResults && (
+        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Resultados del Scraping
+          </h2>
+          <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+            {JSON.stringify(scrapeResults, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }
