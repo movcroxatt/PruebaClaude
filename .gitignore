@@ -42,3 +42,8 @@ Thumbs.db
 # Playwright
 playwright-state/
 test-results/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3

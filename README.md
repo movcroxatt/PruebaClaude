@@ -11,6 +11,8 @@ A Python-based price scraper using Playwright to extract product information fro
 - Realistic browser fingerprinting
 - Custom HTTP headers and user agent
 - **FastAPI REST API** for easy integration
+- **SQLModel database** for persistent storage
+- **Price history tracking** to monitor price changes over time
 
 ## Installation
 
@@ -160,6 +162,66 @@ curl -X POST http://localhost:8000/api/scrape \
   -d '{"url": "https://www.amazon.com/dp/B07RJ18VMF"}'
 ```
 
+## Database Models
+
+The project uses SQLModel (Pydantic + SQLAlchemy) for data persistence with SQLite.
+
+### Schema
+
+**Product Table:**
+- `id`: Primary key (auto-increment)
+- `name`: Product name/title
+- `base_url`: Amazon product URL (unique)
+- `created_at`: Creation timestamp
+- `updated_at`: Last update timestamp
+
+**PriceHistory Table:**
+- `id`: Primary key (auto-increment)
+- `product_id`: Foreign key to Product
+- `store_name`: Store name (e.g., "Amazon.com")
+- `price`: Product price at time of scraping
+- `timestamp`: When the price was recorded
+
+### Initializing the Database
+
+```bash
+# Create database tables
+python database.py
+```
+
+This creates a SQLite database file `amazon_scraper.db` with the schema.
+
+### Database Usage Example
+
+```python
+from sqlmodel import Session, select
+from database import engine
+from models import Product, PriceHistory
+
+# Create a session
+with Session(engine) as session:
+    # Create a product
+    product = Product(
+        name="CeraVe Hydrating Facial Cleanser",
+        base_url="https://www.amazon.com/dp/B07RJ18VMF"
+    )
+    session.add(product)
+    session.commit()
+
+    # Add price history
+    price = PriceHistory(
+        product_id=product.id,
+        store_name="Amazon.com",
+        price=14.98
+    )
+    session.add(price)
+    session.commit()
+
+    # Query products
+    statement = select(Product)
+    products = session.exec(statement).all()
+```
+
 ## Anti-Detection Features
 
 The scraper includes several techniques to avoid detection:
@@ -214,8 +276,11 @@ If the page takes too long to load:
 .
 ├── scraper.py          # CLI scraper script
 ├── main.py             # FastAPI REST API server
+├── models.py           # SQLModel database models (Product, PriceHistory)
+├── database.py         # Database configuration and session management
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
 ├── TESTING_GUIDE.md    # Local testing guide
-└── .gitignore          # Git ignore rules
+├── .gitignore          # Git ignore rules
+└── amazon_scraper.db   # SQLite database (created on first run)
 ```
