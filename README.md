@@ -87,11 +87,78 @@ Response:
 }
 ```
 
-**3. Interactive API documentation**
+**3. Scrape Amazon product (NEW)**
+```bash
+curl -X POST http://localhost:8000/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.amazon.com/dp/B07RJ18VMF"}'
+```
+
+Response (Success):
+```json
+{
+  "success": true,
+  "url": "https://www.amazon.com/dp/B07RJ18VMF",
+  "data": {
+    "title": "CeraVe Hydrating Facial Cleanser...",
+    "price": "$14.98",
+    "image_url": "https://m.media-amazon.com/images/I/..."
+  },
+  "error": null
+}
+```
+
+Response (Error):
+```json
+{
+  "success": false,
+  "url": "https://www.amazon.com/dp/INVALID",
+  "data": {
+    "title": null,
+    "price": null,
+    "image_url": null
+  },
+  "error": "No data could be extracted from the page..."
+}
+```
+
+**4. Interactive API documentation**
 
 Visit in your browser:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+### Using the API from different clients
+
+**Python:**
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/api/scrape",
+    json={"url": "https://www.amazon.com/dp/B07RJ18VMF"}
+)
+data = response.json()
+print(data)
+```
+
+**JavaScript (Node.js):**
+```javascript
+const response = await fetch('http://localhost:8000/api/scrape', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ url: 'https://www.amazon.com/dp/B07RJ18VMF' })
+});
+const data = await response.json();
+console.log(data);
+```
+
+**cURL:**
+```bash
+curl -X POST http://localhost:8000/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.amazon.com/dp/B07RJ18VMF"}'
+```
 
 ## Anti-Detection Features
 
