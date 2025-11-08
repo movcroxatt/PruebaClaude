@@ -383,7 +383,7 @@ async def get_product(product_id: int, session: Session = Depends(get_session)):
 
 
 @app.get("/api/test_search")
-async def test_search(title: str):
+async def test_search(title: str, debug: bool = False):
     """
     TEST ENDPOINT - Search for a product across multiple stores
 
@@ -392,12 +392,14 @@ async def test_search(title: str):
 
     Args:
         title: Product title to search for (query parameter)
+        debug: Enable debug mode (saves screenshots and HTML)
 
     Returns:
         JSON with search results from Amazon and MercadoLibre
 
     Example:
         GET /api/test_search?title=Sony WH-1000XM5
+        GET /api/test_search?title=Sony WH-1000XM5&debug=true
     """
     if not title or len(title.strip()) < 3:
         raise HTTPException(
@@ -405,23 +407,26 @@ async def test_search(title: str):
             detail="Product title must be at least 3 characters long"
         )
 
+    print(f"\n{'='*60}")
+    print(f"TEST SEARCH REQUEST")
+    print(f"Title: {title}")
+    print(f"Debug mode: {debug}")
+    print(f"{'='*60}\n")
+
     # Run searches in parallel using ThreadPoolExecutor
     loop = asyncio.get_event_loop()
 
     try:
-        # Search Amazon
+        # Search Amazon with debug mode
         amazon_result = await loop.run_in_executor(
             executor,
-            search_amazon,
-            title
+            lambda: search_amazon(title, debug=debug)
         )
 
-        # Search MercadoLibre (Mexico by default)
+        # Search MercadoLibre (Mexico by default) with debug mode
         mercadolibre_result = await loop.run_in_executor(
             executor,
-            search_mercadolibre,
-            title,
-            'mx'
+            lambda: search_mercadolibre(title, region='mx', debug=debug)
         )
 
         return {

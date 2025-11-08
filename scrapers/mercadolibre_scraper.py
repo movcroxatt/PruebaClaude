@@ -191,13 +191,14 @@ def scrape_mercadolibre(url: str) -> dict:
     return result
 
 
-def search_mercadolibre(product_title: str, region: str = 'mx') -> str:
+def search_mercadolibre(product_title: str, region: str = 'mx', debug: bool = False) -> str:
     """
     Searches for a product on MercadoLibre and returns the URL of the first result.
 
     Args:
         product_title: The product title to search for
         region: MercadoLibre region (mx, ar, co, br). Defaults to 'mx'
+        debug: If True, saves screenshots and prints extra debug info
 
     Returns:
         URL of the first search result, or empty string if not found
@@ -248,9 +249,21 @@ def search_mercadolibre(product_title: str, region: str = 'mx') -> str:
             search_query = urllib.parse.quote(product_title)
             search_url = f"{base_url}/jm/search?as_word={search_query}"
 
-            print(f"Searching MercadoLibre ({region}) for: {product_title}")
-            page.goto(search_url, wait_until='networkidle', timeout=30000)
-            page.wait_for_timeout(2000)
+            print(f"[DEBUG] Searching MercadoLibre ({region}) for: '{product_title}'")
+            print(f"[DEBUG] Search URL: {search_url}")
+
+            page.goto(search_url, wait_until='domcontentloaded', timeout=20000)
+            print(f"[DEBUG] Page loaded, waiting for content...")
+            page.wait_for_timeout(3000)
+
+            # Take screenshot for debugging
+            if debug:
+                page.screenshot(path=f'debug_mercadolibre_search_{region}.png')
+                print(f"[DEBUG] Screenshot saved: debug_mercadolibre_search_{region}.png")
+
+            # Check page title to see if we got blocked
+            page_title = page.title()
+            print(f"[DEBUG] Page title: {page_title}")
 
             # Find first product result
             # Try multiple selectors for product links
@@ -258,23 +271,48 @@ def search_mercadolibre(product_title: str, region: str = 'mx') -> str:
                 '.ui-search-layout__item a.ui-search-link',
                 '.ui-search-result__content a',
                 'a.ui-search-item__group__element',
-                '.ui-search-result a[href*="/ML"]'
+                '.ui-search-result a[href*="/ML"]',
+                'li.ui-search-layout__item a[href*="/ML"]',
+                '.ui-search-result__content-wrapper a'
             ]
 
-            for selector in product_link_selectors:
+            print(f"[DEBUG] Trying {len(product_link_selectors)} different selectors...")
+            for i, selector in enumerate(product_link_selectors):
+                print(f"[DEBUG] Trying selector {i+1}: {selector}")
                 link_element = page.query_selector(selector)
                 if link_element:
                     href = link_element.get_attribute('href')
                     if href and '/ML' in href:
                         # MercadoLibre URLs usually contain product ID like MLM123456
                         result_url = href.split('#')[0].split('?')[0]  # Remove anchors and query params
-                        print(f"Found MercadoLibre product: {result_url}")
+                        print(f"[SUCCESS] Found MercadoLibre product with selector {i+1}: {result_url}")
                         break
+                    else:
+                        print(f"[DEBUG] Selector {i+1} found link but no ML ID: {href if href else 'None'}")
+                else:
+                    print(f"[DEBUG] Selector {i+1} found no elements")
 
-        except PlaywrightTimeout:
-            print("Error: MercadoLibre search timeout.")
+            if not result_url:
+                print(f"[WARNING] No product found with any selector")
+                if debug:
+                    # Save HTML for debugging
+                    html_content = page.content()
+                    with open(f'debug_mercadolibre_search_{region}.html', 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    print(f"[DEBUG] HTML saved: debug_mercadolibre_search_{region}.html")
+
+        except PlaywrightTimeout as e:
+            print(f"[ERROR] MercadoLibre search timeout: {e}")
+            if debug and page:
+                try:
+                    page.screenshot(path=f'debug_mercadolibre_timeout_{region}.png')
+                    print(f"[DEBUG] Timeout screenshot saved")
+                except:
+                    pass
         except Exception as e:
-            print(f"Error searching MercadoLibre: {e}")
+            print(f"[ERROR] Error searching MercadoLibre: {e}")
+            import traceback
+            print(f"[DEBUG] Traceback: {traceback.format_exc()}")
         finally:
             context.close()
             browser.close()

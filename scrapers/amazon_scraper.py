@@ -178,12 +178,13 @@ def scrape_amazon(url: str) -> dict:
     return result
 
 
-def search_amazon(product_title: str) -> str:
+def search_amazon(product_title: str, debug: bool = False) -> str:
     """
     Searches for a product on Amazon and returns the URL of the first result.
 
     Args:
         product_title: The product title to search for
+        debug: If True, saves screenshots and prints extra debug info
 
     Returns:
         URL of the first search result, or empty string if not found
@@ -224,9 +225,21 @@ def search_amazon(product_title: str) -> str:
             search_query = urllib.parse.quote(product_title)
             search_url = f"https://www.amazon.com/s?k={search_query}"
 
-            print(f"Searching Amazon for: {product_title}")
-            page.goto(search_url, wait_until='networkidle', timeout=30000)
-            page.wait_for_timeout(2000)
+            print(f"[DEBUG] Searching Amazon for: '{product_title}'")
+            print(f"[DEBUG] Search URL: {search_url}")
+
+            page.goto(search_url, wait_until='domcontentloaded', timeout=20000)
+            print(f"[DEBUG] Page loaded, waiting for content...")
+            page.wait_for_timeout(3000)
+
+            # Take screenshot for debugging
+            if debug:
+                page.screenshot(path='debug_amazon_search.png')
+                print(f"[DEBUG] Screenshot saved: debug_amazon_search.png")
+
+            # Check page title to see if we got blocked
+            page_title = page.title()
+            print(f"[DEBUG] Page title: {page_title}")
 
             # Find first product result
             # Try multiple selectors for product links
@@ -234,10 +247,14 @@ def search_amazon(product_title: str) -> str:
                 'div[data-component-type="s-search-result"] h2 a',
                 '.s-result-item h2 a',
                 'h2.s-line-clamp-2 a',
-                'div.s-card-container h2 a'
+                'div.s-card-container h2 a',
+                '.s-search-results .s-result-item a.a-link-normal',
+                'div.s-result-list div[data-asin] h2 a'
             ]
 
-            for selector in product_link_selectors:
+            print(f"[DEBUG] Trying {len(product_link_selectors)} different selectors...")
+            for i, selector in enumerate(product_link_selectors):
+                print(f"[DEBUG] Trying selector {i+1}: {selector}")
                 link_element = page.query_selector(selector)
                 if link_element:
                     href = link_element.get_attribute('href')
@@ -247,13 +264,32 @@ def search_amazon(product_title: str) -> str:
                             result_url = f"https://www.amazon.com{href}"
                         else:
                             result_url = href
-                        print(f"Found Amazon product: {result_url}")
+                        print(f"[SUCCESS] Found Amazon product with selector {i+1}: {result_url}")
                         break
+                else:
+                    print(f"[DEBUG] Selector {i+1} found no elements")
 
-        except PlaywrightTimeout:
-            print("Error: Amazon search timeout.")
+            if not result_url:
+                print(f"[WARNING] No product found with any selector")
+                if debug:
+                    # Save HTML for debugging
+                    html_content = page.content()
+                    with open('debug_amazon_search.html', 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    print(f"[DEBUG] HTML saved: debug_amazon_search.html")
+
+        except PlaywrightTimeout as e:
+            print(f"[ERROR] Amazon search timeout: {e}")
+            if debug and page:
+                try:
+                    page.screenshot(path='debug_amazon_timeout.png')
+                    print(f"[DEBUG] Timeout screenshot saved")
+                except:
+                    pass
         except Exception as e:
-            print(f"Error searching Amazon: {e}")
+            print(f"[ERROR] Error searching Amazon: {e}")
+            import traceback
+            print(f"[DEBUG] Traceback: {traceback.format_exc()}")
         finally:
             context.close()
             browser.close()
