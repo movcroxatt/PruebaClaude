@@ -243,6 +243,24 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
             scraped_data['product_id'] = product.id
             scraped_data['saved_to_database'] = True
 
+            # Fetch complete price history for this product
+            price_statement = select(PriceHistory).where(
+                PriceHistory.product_id == product.id
+            ).order_by(PriceHistory.timestamp.desc())
+            price_history = session.exec(price_statement).all()
+
+            # Convert to list of dicts for JSON response
+            scraped_data['price_history'] = [
+                {
+                    'id': ph.id,
+                    'product_id': ph.product_id,
+                    'store_name': ph.store_name,
+                    'price': ph.price,
+                    'timestamp': ph.timestamp.isoformat()
+                }
+                for ph in price_history
+            ]
+
         except Exception as db_error:
             # If database save fails, log it but still return scraped data
             print(f"Database error: {db_error}")

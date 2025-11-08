@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import HistoryChart from './HistoryChart'
 
 function SearchBar() {
   const [url, setUrl] = useState('')
@@ -113,14 +114,48 @@ function SearchBar() {
 
       {/* Results Display */}
       {scrapeResults && !isLoading && (
-        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Resultados del Scraping
-          </h2>
-          <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-            {JSON.stringify(scrapeResults, null, 2)}
-          </pre>
-        </div>
+        <>
+          <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Información del Producto
+            </h2>
+            <div className="space-y-3">
+              {scrapeResults.data?.title && (
+                <div>
+                  <span className="font-semibold text-gray-700">Título: </span>
+                  <span className="text-gray-600">{scrapeResults.data.title}</span>
+                </div>
+              )}
+              {scrapeResults.data?.price && (
+                <div>
+                  <span className="font-semibold text-gray-700">Precio: </span>
+                  <span className="text-2xl font-bold text-blue-600">{scrapeResults.data.price}</span>
+                </div>
+              )}
+              {scrapeResults.data?.image_url && (
+                <div>
+                  <span className="font-semibold text-gray-700 block mb-2">Imagen:</span>
+                  <img
+                    src={scrapeResults.data.image_url}
+                    alt={scrapeResults.data.title || 'Product'}
+                    className="max-w-xs rounded-lg shadow-md"
+                  />
+                </div>
+              )}
+              {scrapeResults.data?.product_id && (
+                <div>
+                  <span className="font-semibold text-gray-700">ID del Producto: </span>
+                  <span className="text-gray-600">{scrapeResults.data.product_id}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Price History Chart */}
+          {scrapeResults.data?.price_history && (
+            <HistoryChart historyData={scrapeResults.data.price_history} />
+          )}
+        </>
       )}
     </div>
   )
