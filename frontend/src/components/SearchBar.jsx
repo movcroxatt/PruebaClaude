@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import HistoryChart from './HistoryChart'
 import PriceVisualizer from './PriceVisualizer'
 
@@ -123,7 +124,11 @@ function SearchBar() {
         const maxPrice = prices.length > 0 ? Math.max(...prices) : null
 
         return (
-          <>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
             <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">
                 Información del Producto
@@ -180,7 +185,7 @@ function SearchBar() {
             {scrapeResults.data?.price_history && (
               <HistoryChart historyData={scrapeResults.data.price_history} />
             )}
-          </>
+          </motion.div>
         )
       })()}
     </div>
