@@ -52,10 +52,10 @@ function SearchBar() {
         {/* Title */}
         <div className="text-center mb-2">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Amazon Price Scraper
+            Multi-Store Price Tracker
           </h1>
           <p className="text-gray-600">
-            Ingresa la URL de un producto de Amazon para rastrear su precio
+            Rastrea precios de Amazon, MercadoLibre y más
           </p>
         </div>
 
@@ -65,7 +65,7 @@ function SearchBar() {
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.amazon.com/dp/..."
+            placeholder="Ingresa URL de Amazon, MercadoLibre..."
             className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-gray-700"
             required
             disabled={isLoading}
@@ -85,7 +85,7 @@ function SearchBar() {
 
         {/* Helper Text */}
         <p className="text-sm text-gray-500 text-center">
-          Ejemplo: https://www.amazon.com/dp/B07RJ18VMF
+          Soportamos: Amazon, MercadoLibre (México, Argentina, Colombia, Brasil)
         </p>
       </form>
 
@@ -123,6 +123,22 @@ function SearchBar() {
         const minPrice = prices.length > 0 ? Math.min(...prices) : null
         const maxPrice = prices.length > 0 ? Math.max(...prices) : null
 
+        // Get store name from most recent price history entry
+        const storeName = priceHistory.length > 0 ? priceHistory[0].store_name : null
+
+        // Determine badge color based on store
+        const getStoreBadgeColors = (store) => {
+          if (!store) return 'bg-gray-100 text-gray-800 border-gray-300'
+
+          const storeLower = store.toLowerCase()
+          if (storeLower.includes('amazon')) {
+            return 'bg-orange-100 text-orange-800 border-orange-300'
+          } else if (storeLower.includes('mercadolibre') || storeLower.includes('mercadolivre')) {
+            return 'bg-yellow-100 text-yellow-800 border-yellow-300'
+          }
+          return 'bg-blue-100 text-blue-800 border-blue-300'
+        }
+
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -130,9 +146,16 @@ function SearchBar() {
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
             <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Información del Producto
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Información del Producto
+                </h2>
+                {storeName && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold border-2 ${getStoreBadgeColors(storeName)}`}>
+                    {storeName}
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left column - Product info */}
