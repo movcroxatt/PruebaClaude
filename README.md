@@ -1,6 +1,6 @@
 # Amazon Price Scraper
 
-A Python-based price scraper using Playwright to extract product information from Amazon.
+A Python-based price scraper using Playwright to extract product information from Amazon, with a FastAPI REST API.
 
 ## Features
 
@@ -10,6 +10,7 @@ A Python-based price scraper using Playwright to extract product information fro
 - Anti-detection techniques to bypass Amazon's bot protection
 - Realistic browser fingerprinting
 - Custom HTTP headers and user agent
+- **FastAPI REST API** for easy integration
 
 ## Installation
 
@@ -27,6 +28,8 @@ playwright install chromium
 
 ## Usage
 
+### Command Line Interface (CLI)
+
 ```bash
 python scraper.py <AMAZON_PRODUCT_URL>
 ```
@@ -39,6 +42,56 @@ python scraper.py "https://www.amazon.com/dp/B07RJ18VMF"
 # Full URL with parameters
 python scraper.py "https://www.amazon.com/Some-Product-Name/dp/B08N5WRWNW"
 ```
+
+### FastAPI REST API
+
+Start the API server:
+
+```bash
+# Method 1: Using uvicorn directly
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Method 2: Using python
+python main.py
+```
+
+The API will be available at: `http://localhost:8000`
+
+#### Available Endpoints:
+
+**1. Root endpoint (Hello World)**
+```bash
+curl http://localhost:8000/
+```
+
+Response:
+```json
+{
+  "message": "Hola Mundo",
+  "status": "success",
+  "api": "Amazon Price Scraper",
+  "version": "1.0.0"
+}
+```
+
+**2. Health check**
+```bash
+curl http://localhost:8000/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "message": "API is running"
+}
+```
+
+**3. Interactive API documentation**
+
+Visit in your browser:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
 ## Anti-Detection Features
 
@@ -92,8 +145,10 @@ If the page takes too long to load:
 
 ```
 .
-├── scraper.py          # Main scraper script
+├── scraper.py          # CLI scraper script
+├── main.py             # FastAPI REST API server
 ├── requirements.txt    # Python dependencies
-├── README.md          # This file
-└── .gitignore         # Git ignore rules
+├── README.md           # This file
+├── TESTING_GUIDE.md    # Local testing guide
+└── .gitignore          # Git ignore rules
 ```
