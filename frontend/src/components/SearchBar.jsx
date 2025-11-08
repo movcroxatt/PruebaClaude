@@ -3,9 +3,16 @@ import { useState } from 'react'
 function SearchBar() {
   const [url, setUrl] = useState('')
   const [scrapeResults, setScrapeResults] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Reset states
+    setError(null)
+    setScrapeResults(null)
+    setIsLoading(true)
 
     // Call API endpoint
     try {
@@ -18,10 +25,21 @@ function SearchBar() {
       })
 
       const data = await response.json()
-      setScrapeResults(data)
+
+      // Check if API returned an error
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Error al procesar la solicitud')
+        setScrapeResults(null)
+      } else {
+        setScrapeResults(data)
+        setError(null)
+      }
     } catch (error) {
       console.error('Error calling API:', error)
-      setScrapeResults({ error: error.message })
+      setError('Error de conexión: No se pudo conectar con el servidor. Asegúrate de que el backend esté corriendo.')
+      setScrapeResults(null)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -47,12 +65,18 @@ function SearchBar() {
             placeholder="https://www.amazon.com/dp/..."
             className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-gray-700"
             required
+            disabled={isLoading}
           />
           <button
             type="submit"
-            className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all active:scale-95 whitespace-nowrap"
+            disabled={isLoading}
+            className={`px-8 py-3 font-semibold rounded-lg focus:outline-none focus:ring-4 transition-all whitespace-nowrap ${
+              isLoading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300 active:scale-95'
+            }`}
           >
-            Rastrear
+            {isLoading ? 'Rastreando...' : 'Rastrear'}
           </button>
         </div>
 
@@ -62,8 +86,33 @@ function SearchBar() {
         </p>
       </form>
 
+      {/* Loading Spinner */}
+      {isLoading && (
+        <div className="mt-8 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+          <p className="mt-4 text-gray-600 font-medium">Rastreando producto...</p>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="mt-8 bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-semibold text-red-800">Error</h3>
+              <p className="mt-2 text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Results Display */}
-      {scrapeResults && (
+      {scrapeResults && !isLoading && (
         <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
             Resultados del Scraping
