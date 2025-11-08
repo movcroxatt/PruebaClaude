@@ -5,6 +5,7 @@ Scraper Factory - Detects which store scraper to use based on URL.
 from typing import Callable, Optional, List
 from urllib.parse import urlparse
 from .amazon_scraper import scrape_amazon
+from .mercadolibre_scraper import scrape_mercadolibre
 
 
 def get_scraper_function(url: str) -> Optional[Callable[[str], dict]]:
@@ -29,12 +30,14 @@ def get_scraper_function(url: str) -> Optional[Callable[[str], dict]]:
         # Detect store based on domain
         if 'amazon.com' in domain or 'amazon.' in domain:
             return scrape_amazon
+        elif 'mercadolibre.com' in domain or 'mercadolibre.' in domain or 'mercadolibre.com.' in domain:
+            return scrape_mercadolibre
 
         # Add more stores here in the future:
-        # elif 'mercadolibre.com' in domain or 'mercadolibre.' in domain:
-        #     return scrape_mercadolibre
         # elif 'ebay.com' in domain:
         #     return scrape_ebay
+        # elif 'aliexpress.com' in domain:
+        #     return scrape_aliexpress
 
         # Store not supported
         return None
@@ -52,8 +55,9 @@ def get_supported_stores() -> List[str]:
         List of supported store names.
     """
     return [
-        'Amazon'
+        'Amazon',
+        'MercadoLibre'
         # Add more stores as they are implemented:
-        # 'MercadoLibre',
         # 'eBay',
+        # 'AliExpress',
     ]

@@ -73,19 +73,34 @@ def parse_price(price_str: Optional[str]) -> Optional[float]:
 
 def simplify_url(url: str) -> str:
     """
-    Simplify Amazon URL by removing tracking parameters
+    Simplify product URL by removing tracking parameters
 
     Args:
-        url: Full Amazon URL with parameters
+        url: Full product URL with parameters
 
     Returns:
         Simplified URL with just the product ID
     """
-    # Extract product ID from URL
-    match = re.search(r'/dp/([A-Z0-9]+)', url)
-    if match:
-        product_id = match.group(1)
+    # Amazon: Extract product ID from URL
+    amazon_match = re.search(r'/dp/([A-Z0-9]+)', url)
+    if amazon_match:
+        product_id = amazon_match.group(1)
         return f"https://www.amazon.com/dp/{product_id}"
+
+    # MercadoLibre: Extract product ID (format: MLM1234567890, MLA1234567890, etc.)
+    mercadolibre_match = re.search(r'(ML[A-Z]-?\d+)', url)
+    if mercadolibre_match:
+        product_id = mercadolibre_match.group(1)
+        # Detect region from URL
+        if 'mercadolibre.com.mx' in url.lower():
+            return f"https://www.mercadolibre.com.mx/item/{product_id}"
+        elif 'mercadolibre.com.ar' in url.lower():
+            return f"https://www.mercadolibre.com.ar/item/{product_id}"
+        elif 'mercadolibre.com.co' in url.lower():
+            return f"https://www.mercadolibre.com.co/item/{product_id}"
+        else:
+            return f"https://www.mercadolibre.com/item/{product_id}"
+
     return url
 
 
@@ -243,6 +258,16 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
                 store_name = "Amazon.co.uk"
             elif 'amazon' in url_lower:
                 store_name = "Amazon"
+            elif 'mercadolibre.com.mx' in url_lower:
+                store_name = "MercadoLibre México"
+            elif 'mercadolibre.com.ar' in url_lower:
+                store_name = "MercadoLibre Argentina"
+            elif 'mercadolibre.com.co' in url_lower:
+                store_name = "MercadoLibre Colombia"
+            elif 'mercadolibre.com.br' in url_lower or 'mercadolivre.com.br' in url_lower:
+                store_name = "MercadoLibre Brasil"
+            elif 'mercadolibre' in url_lower:
+                store_name = "MercadoLibre"
             # Add more store detection here as needed
 
             # Parse and save price history
