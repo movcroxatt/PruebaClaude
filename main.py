@@ -15,8 +15,8 @@ import re
 from datetime import datetime
 from sqlmodel import Session, select
 
-# Import the scraper function
-from scraper import scrape_amazon_product
+# Import scraper factory
+from scrapers import get_scraper_function, get_supported_stores
 
 # Import database models and functions
 from database import create_db_and_tables, get_session
@@ -24,9 +24,9 @@ from models import Product, PriceHistory, ProductReadWithHistory, PriceHistoryRe
 
 # Create FastAPI app instance
 app = FastAPI(
-    title="Amazon Price Scraper API",
-    description="API for scraping Amazon product information",
-    version="1.0.0"
+    title="Multi-Store Price Scraper API",
+    description="API for scraping product information from multiple online stores",
+    version="2.0.0"
 )
 
 # Configure CORS
@@ -92,7 +92,7 @@ def simplify_url(url: str) -> str:
 # Pydantic models for request/response
 class ScrapeRequest(BaseModel):
     """Request model for scraping endpoint"""
-    url: str = Field(..., description="Amazon product URL to scrape", example="https://www.amazon.com/dp/B07RJ18VMF")
+    url: str = Field(..., description="Product URL to scrape from supported stores", example="https://www.amazon.com/dp/B07RJ18VMF")
 
     class Config:
         json_schema_extra = {
@@ -135,8 +135,9 @@ async def root():
     return {
         "message": "Hola Mundo",
         "status": "success",
-        "api": "Amazon Price Scraper",
-        "version": "1.0.0"
+        "api": "Multi-Store Price Scraper",
+        "version": "2.0.0",
+        "supported_stores": get_supported_stores()
     }
 
 
@@ -157,10 +158,10 @@ async def health_check():
 @app.post("/api/scrape", response_model=ScrapeResponse)
 async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_session)):
     """
-    Scrape Amazon product information and save to database
+    Scrape product information from supported stores and save to database
 
-    This endpoint accepts an Amazon product URL, scrapes the data,
-    saves it to the database, and returns the scraped information.
+    This endpoint accepts a product URL from supported stores (Amazon, etc.),
+    scrapes the data, saves it to the database, and returns the scraped information.
 
     Args:
         request: ScrapeRequest object containing the URL to scrape
@@ -170,13 +171,16 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
         ScrapeResponse: Object containing the scraped data or error information
 
     Raises:
-        HTTPException: If the URL is invalid or scraping fails critically
+        HTTPException: If the store is not supported or scraping fails critically
     """
-    # Validate URL contains 'amazon'
-    if 'amazon' not in request.url.lower():
+    # Get the appropriate scraper function for this URL
+    scraper_function = get_scraper_function(request.url)
+
+    if scraper_function is None:
+        supported_stores = get_supported_stores()
         raise HTTPException(
             status_code=400,
-            detail="Invalid URL. Please provide a valid Amazon product URL."
+            detail=f"Tienda no soportada. Tiendas soportadas: {', '.join(supported_stores)}"
         )
 
     try:
@@ -184,7 +188,7 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
         loop = asyncio.get_event_loop()
         scraped_data = await loop.run_in_executor(
             executor,
-            scrape_amazon_product,
+            scraper_function,
             request.url
         )
 
@@ -228,12 +232,25 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
             session.commit()
             session.refresh(product)
 
+            # Detect store name from URL
+            store_name = "Unknown Store"
+            url_lower = request.url.lower()
+            if 'amazon.com' in url_lower:
+                store_name = "Amazon.com"
+            elif 'amazon.es' in url_lower:
+                store_name = "Amazon.es"
+            elif 'amazon.co.uk' in url_lower:
+                store_name = "Amazon.co.uk"
+            elif 'amazon' in url_lower:
+                store_name = "Amazon"
+            # Add more store detection here as needed
+
             # Parse and save price history
             price_float = parse_price(scraped_data.get('price'))
             if price_float is not None:
                 price_history = PriceHistory(
                     product_id=product.id,
-                    store_name="Amazon.com",
+                    store_name=store_name,
                     price=price_float
                 )
                 session.add(price_history)
