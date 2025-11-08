@@ -89,7 +89,7 @@ Response:
 }
 ```
 
-**3. Scrape Amazon product (NEW)**
+**3. Scrape Amazon product (with Database Integration)**
 ```bash
 curl -X POST http://localhost:8000/api/scrape \
   -H "Content-Type: application/json" \
@@ -104,11 +104,20 @@ Response (Success):
   "data": {
     "title": "CeraVe Hydrating Facial Cleanser...",
     "price": "$14.98",
-    "image_url": "https://m.media-amazon.com/images/I/..."
+    "image_url": "https://m.media-amazon.com/images/I/...",
+    "product_id": 1,
+    "saved_to_database": true
   },
   "error": null
 }
 ```
+
+**What happens when you scrape:**
+1. The product is scraped from Amazon
+2. If it's a new product, it's created in the database
+3. If it already exists, the product info is updated
+4. A new price history entry is added with current price
+5. The response includes `product_id` and `saved_to_database` status
 
 Response (Error):
 ```json
@@ -166,6 +175,16 @@ curl -X POST http://localhost:8000/api/scrape \
 
 The project uses SQLModel (Pydantic + SQLAlchemy) for data persistence with SQLite.
 
+### Automatic Database Integration
+
+**The API automatically saves all scraped data to the database!**
+
+When you use the `/api/scrape` endpoint:
+- Products are automatically created or updated
+- Price history is recorded with each scrape
+- URLs are normalized (tracking parameters removed)
+- Duplicate products are detected by URL
+
 ### Schema
 
 **Product Table:**
@@ -184,8 +203,13 @@ The project uses SQLModel (Pydantic + SQLAlchemy) for data persistence with SQLi
 
 ### Initializing the Database
 
+**The database is automatically initialized when you start the API server!**
+
+The FastAPI app creates all necessary tables on startup, so you don't need to do anything manually.
+
+If you want to initialize the database separately:
 ```bash
-# Create database tables
+# Create database tables manually
 python database.py
 ```
 

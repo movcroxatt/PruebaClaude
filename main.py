@@ -4,15 +4,22 @@ FastAPI Server for Amazon Price Scraper
 API endpoints for scraping Amazon product information
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, HttpUrl, Field
 from typing import Optional
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import re
+from datetime import datetime
+from sqlmodel import Session, select
 
 # Import the scraper function
 from scraper import scrape_amazon_product
+
+# Import database models and functions
+from database import create_db_and_tables, get_session
+from models import Product, PriceHistory
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -23,6 +30,53 @@ app = FastAPI(
 
 # Thread pool for running blocking scraper operations
 executor = ThreadPoolExecutor(max_workers=3)
+
+
+# Startup event to create database tables
+@app.on_event("startup")
+def on_startup():
+    """Initialize database on application startup"""
+    create_db_and_tables()
+
+
+# Helper functions
+def parse_price(price_str: Optional[str]) -> Optional[float]:
+    """
+    Parse price string to float
+
+    Args:
+        price_str: Price string like "$14.98" or "14.98"
+
+    Returns:
+        Float price or None if parsing fails
+    """
+    if not price_str:
+        return None
+
+    try:
+        # Remove currency symbols and commas
+        cleaned = re.sub(r'[^\d.]', '', price_str)
+        return float(cleaned)
+    except (ValueError, AttributeError):
+        return None
+
+
+def simplify_url(url: str) -> str:
+    """
+    Simplify Amazon URL by removing tracking parameters
+
+    Args:
+        url: Full Amazon URL with parameters
+
+    Returns:
+        Simplified URL with just the product ID
+    """
+    # Extract product ID from URL
+    match = re.search(r'/dp/([A-Z0-9]+)', url)
+    if match:
+        product_id = match.group(1)
+        return f"https://www.amazon.com/dp/{product_id}"
+    return url
 
 
 # Pydantic models for request/response
@@ -91,15 +145,16 @@ async def health_check():
 
 
 @app.post("/api/scrape", response_model=ScrapeResponse)
-async def scrape_product(request: ScrapeRequest):
+async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_session)):
     """
-    Scrape Amazon product information
+    Scrape Amazon product information and save to database
 
-    This endpoint accepts an Amazon product URL and returns the scraped data
-    including title, price, and main image URL.
+    This endpoint accepts an Amazon product URL, scrapes the data,
+    saves it to the database, and returns the scraped information.
 
     Args:
         request: ScrapeRequest object containing the URL to scrape
+        session: Database session (injected by FastAPI)
 
     Returns:
         ScrapeResponse: Object containing the scraped data or error information
@@ -137,6 +192,52 @@ async def scrape_product(request: ScrapeRequest):
                 data=scraped_data,
                 error="No data could be extracted from the page. The page might be blocked or the URL is invalid."
             )
+
+        # Save to database
+        try:
+            # Simplify URL for consistent storage
+            base_url = simplify_url(request.url)
+
+            # Check if product already exists
+            statement = select(Product).where(Product.base_url == base_url)
+            existing_product = session.exec(statement).first()
+
+            if existing_product:
+                # Update existing product
+                existing_product.name = scraped_data.get('title') or existing_product.name
+                existing_product.updated_at = datetime.utcnow()
+                product = existing_product
+            else:
+                # Create new product
+                product = Product(
+                    name=scraped_data.get('title') or "Unknown Product",
+                    base_url=base_url
+                )
+                session.add(product)
+
+            session.commit()
+            session.refresh(product)
+
+            # Parse and save price history
+            price_float = parse_price(scraped_data.get('price'))
+            if price_float is not None:
+                price_history = PriceHistory(
+                    product_id=product.id,
+                    store_name="Amazon.com",
+                    price=price_float
+                )
+                session.add(price_history)
+                session.commit()
+
+            # Add database info to response
+            scraped_data['product_id'] = product.id
+            scraped_data['saved_to_database'] = True
+
+        except Exception as db_error:
+            # If database save fails, log it but still return scraped data
+            print(f"Database error: {db_error}")
+            scraped_data['saved_to_database'] = False
+            scraped_data['database_error'] = str(db_error)
 
         return ScrapeResponse(
             success=True,
