@@ -16,7 +16,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 # Import scraper factory
-from scrapers import get_scraper_function, get_supported_stores
+from scrapers import get_scraper_function, get_supported_stores, search_amazon, search_mercadolibre
 
 # Import database models and functions
 from database import create_db_and_tables, get_session
@@ -380,6 +380,76 @@ async def get_product(product_id: int, session: Session = Depends(get_session)):
         updated_at=product.updated_at,
         price_history=price_history_reads
     )
+
+
+@app.get("/api/test_search")
+async def test_search(title: str):
+    """
+    TEST ENDPOINT - Search for a product across multiple stores
+
+    This is a temporary testing endpoint to validate the search functionality
+    before integrating it into the main /api/scrape endpoint.
+
+    Args:
+        title: Product title to search for (query parameter)
+
+    Returns:
+        JSON with search results from Amazon and MercadoLibre
+
+    Example:
+        GET /api/test_search?title=Sony WH-1000XM5
+    """
+    if not title or len(title.strip()) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Product title must be at least 3 characters long"
+        )
+
+    # Run searches in parallel using ThreadPoolExecutor
+    loop = asyncio.get_event_loop()
+
+    try:
+        # Search Amazon
+        amazon_result = await loop.run_in_executor(
+            executor,
+            search_amazon,
+            title
+        )
+
+        # Search MercadoLibre (Mexico by default)
+        mercadolibre_result = await loop.run_in_executor(
+            executor,
+            search_mercadolibre,
+            title,
+            'mx'
+        )
+
+        return {
+            "success": True,
+            "search_term": title,
+            "results": {
+                "amazon": {
+                    "url": amazon_result if amazon_result else None,
+                    "found": bool(amazon_result)
+                },
+                "mercadolibre": {
+                    "url": mercadolibre_result if mercadolibre_result else None,
+                    "found": bool(mercadolibre_result)
+                }
+            },
+            "note": "This is a test endpoint. Results show the first search result from each store."
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "search_term": title,
+            "error": f"Search failed: {str(e)}",
+            "results": {
+                "amazon": {"url": None, "found": False},
+                "mercadolibre": {"url": None, "found": False}
+            }
+        }
 
 
 if __name__ == "__main__":
