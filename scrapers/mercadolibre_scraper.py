@@ -189,3 +189,94 @@ def scrape_mercadolibre(url: str) -> dict:
             browser.close()
 
     return result
+
+
+def search_mercadolibre(product_title: str, region: str = 'mx') -> str:
+    """
+    Searches for a product on MercadoLibre and returns the URL of the first result.
+
+    Args:
+        product_title: The product title to search for
+        region: MercadoLibre region (mx, ar, co, br). Defaults to 'mx'
+
+    Returns:
+        URL of the first search result, or empty string if not found
+    """
+    result_url = ""
+
+    # Map regions to base URLs
+    region_urls = {
+        'mx': 'https://www.mercadolibre.com.mx',
+        'ar': 'https://www.mercadolibre.com.ar',
+        'co': 'https://www.mercadolibre.com.co',
+        'br': 'https://www.mercadolibre.com.br'
+    }
+
+    base_url = region_urls.get(region, region_urls['mx'])
+
+    with sync_playwright() as p:
+        # Launch browser with anti-detection settings
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+            ]
+        )
+
+        # Create context with realistic settings
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            locale='es-ES',
+        )
+
+        page = context.new_page()
+
+        # Hide webdriver detection
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+        """)
+
+        try:
+            # Build search URL
+            import urllib.parse
+            search_query = urllib.parse.quote(product_title)
+            search_url = f"{base_url}/jm/search?as_word={search_query}"
+
+            print(f"Searching MercadoLibre ({region}) for: {product_title}")
+            page.goto(search_url, wait_until='networkidle', timeout=30000)
+            page.wait_for_timeout(2000)
+
+            # Find first product result
+            # Try multiple selectors for product links
+            product_link_selectors = [
+                '.ui-search-layout__item a.ui-search-link',
+                '.ui-search-result__content a',
+                'a.ui-search-item__group__element',
+                '.ui-search-result a[href*="/ML"]'
+            ]
+
+            for selector in product_link_selectors:
+                link_element = page.query_selector(selector)
+                if link_element:
+                    href = link_element.get_attribute('href')
+                    if href and '/ML' in href:
+                        # MercadoLibre URLs usually contain product ID like MLM123456
+                        result_url = href.split('#')[0].split('?')[0]  # Remove anchors and query params
+                        print(f"Found MercadoLibre product: {result_url}")
+                        break
+
+        except PlaywrightTimeout:
+            print("Error: MercadoLibre search timeout.")
+        except Exception as e:
+            print(f"Error searching MercadoLibre: {e}")
+        finally:
+            context.close()
+            browser.close()
+
+    return result_url

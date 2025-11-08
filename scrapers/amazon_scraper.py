@@ -176,3 +176,86 @@ def scrape_amazon(url: str) -> dict:
             browser.close()
 
     return result
+
+
+def search_amazon(product_title: str) -> str:
+    """
+    Searches for a product on Amazon and returns the URL of the first result.
+
+    Args:
+        product_title: The product title to search for
+
+    Returns:
+        URL of the first search result, or empty string if not found
+    """
+    result_url = ""
+
+    with sync_playwright() as p:
+        # Launch browser with anti-detection settings
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+            ]
+        )
+
+        # Create context with realistic settings
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            locale='en-US',
+        )
+
+        page = context.new_page()
+
+        # Hide webdriver detection
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+        """)
+
+        try:
+            # Build search URL
+            import urllib.parse
+            search_query = urllib.parse.quote(product_title)
+            search_url = f"https://www.amazon.com/s?k={search_query}"
+
+            print(f"Searching Amazon for: {product_title}")
+            page.goto(search_url, wait_until='networkidle', timeout=30000)
+            page.wait_for_timeout(2000)
+
+            # Find first product result
+            # Try multiple selectors for product links
+            product_link_selectors = [
+                'div[data-component-type="s-search-result"] h2 a',
+                '.s-result-item h2 a',
+                'h2.s-line-clamp-2 a',
+                'div.s-card-container h2 a'
+            ]
+
+            for selector in product_link_selectors:
+                link_element = page.query_selector(selector)
+                if link_element:
+                    href = link_element.get_attribute('href')
+                    if href:
+                        # Build full URL
+                        if href.startswith('/'):
+                            result_url = f"https://www.amazon.com{href}"
+                        else:
+                            result_url = href
+                        print(f"Found Amazon product: {result_url}")
+                        break
+
+        except PlaywrightTimeout:
+            print("Error: Amazon search timeout.")
+        except Exception as e:
+            print(f"Error searching Amazon: {e}")
+        finally:
+            context.close()
+            browser.close()
+
+    return result_url

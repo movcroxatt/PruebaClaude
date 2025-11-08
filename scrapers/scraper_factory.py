@@ -4,8 +4,8 @@ Scraper Factory - Detects which store scraper to use based on URL.
 
 from typing import Callable, Optional, List
 from urllib.parse import urlparse
-from .amazon_scraper import scrape_amazon
-from .mercadolibre_scraper import scrape_mercadolibre
+from .amazon_scraper import scrape_amazon, search_amazon
+from .mercadolibre_scraper import scrape_mercadolibre, search_mercadolibre
 
 
 def get_scraper_function(url: str) -> Optional[Callable[[str], dict]]:
@@ -61,3 +61,28 @@ def get_supported_stores() -> List[str]:
         # 'eBay',
         # 'AliExpress',
     ]
+
+
+def get_search_function(store_name: str) -> Optional[Callable[[str], str]]:
+    """
+    Returns the appropriate search function for a given store name.
+
+    Args:
+        store_name: The name of the store (case-insensitive)
+
+    Returns:
+        A search function that takes a product title and returns a product URL,
+        or None if the store is not supported.
+    """
+    store_lower = store_name.lower()
+
+    if 'amazon' in store_lower:
+        return search_amazon
+    elif 'mercadolibre' in store_lower or 'mercadolivre' in store_lower:
+        return search_mercadolibre
+
+    # Add more stores here in the future:
+    # elif 'ebay' in store_lower:
+    #     return search_ebay
+
+    return None
