@@ -19,7 +19,7 @@ from scraper import scrape_amazon_product
 
 # Import database models and functions
 from database import create_db_and_tables, get_session
-from models import Product, PriceHistory
+from models import Product, PriceHistory, ProductReadWithHistory, PriceHistoryRead
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -253,6 +253,63 @@ async def scrape_product(request: ScrapeRequest, session: Session = Depends(get_
             data=None,
             error=f"Scraping failed: {str(e)}"
         )
+
+
+@app.get("/api/product/{product_id}", response_model=ProductReadWithHistory)
+async def get_product(product_id: int, session: Session = Depends(get_session)):
+    """
+    Get product information with price history
+
+    Retrieves a product by ID including all its price history entries,
+    sorted by timestamp (newest first).
+
+    Args:
+        product_id: The product ID to retrieve
+        session: Database session (injected by FastAPI)
+
+    Returns:
+        ProductReadWithHistory: Product with complete price history
+
+    Raises:
+        HTTPException: 404 if product not found
+    """
+    # Query product with price history
+    statement = select(Product).where(Product.id == product_id)
+    product = session.exec(statement).first()
+
+    if not product:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Product with ID {product_id} not found"
+        )
+
+    # Query price history for this product, sorted by timestamp descending
+    price_statement = select(PriceHistory).where(
+        PriceHistory.product_id == product_id
+    ).order_by(PriceHistory.timestamp.desc())
+
+    price_history = session.exec(price_statement).all()
+
+    # Convert to response model
+    price_history_reads = [
+        PriceHistoryRead(
+            id=ph.id,
+            product_id=ph.product_id,
+            store_name=ph.store_name,
+            price=ph.price,
+            timestamp=ph.timestamp
+        )
+        for ph in price_history
+    ]
+
+    return ProductReadWithHistory(
+        id=product.id,
+        name=product.name,
+        base_url=product.base_url,
+        created_at=product.created_at,
+        updated_at=product.updated_at,
+        price_history=price_history_reads
+    )
 
 
 if __name__ == "__main__":

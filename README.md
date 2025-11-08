@@ -133,7 +133,52 @@ Response (Error):
 }
 ```
 
-**4. Interactive API documentation**
+**4. Get product with price history**
+```bash
+curl http://localhost:8000/api/product/1
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "name": "CeraVe Hydrating Facial Cleanser",
+  "base_url": "https://www.amazon.com/dp/B07RJ18VMF",
+  "created_at": "2025-11-08T12:00:00",
+  "updated_at": "2025-11-08T15:30:00",
+  "price_history": [
+    {
+      "id": 3,
+      "product_id": 1,
+      "store_name": "Amazon.com",
+      "price": 13.99,
+      "timestamp": "2025-11-08T15:30:00"
+    },
+    {
+      "id": 2,
+      "product_id": 1,
+      "store_name": "Amazon.com",
+      "price": 14.98,
+      "timestamp": "2025-11-07T10:00:00"
+    },
+    {
+      "id": 1,
+      "product_id": 1,
+      "store_name": "Amazon.com",
+      "price": 15.99,
+      "timestamp": "2025-11-06T08:00:00"
+    }
+  ]
+}
+```
+
+**Features:**
+- Returns complete product information
+- Includes all price history entries
+- Prices sorted by timestamp (newest first)
+- Returns 404 if product not found
+
+**5. Interactive API documentation**
 
 Visit in your browser:
 - Swagger UI: `http://localhost:8000/docs`
@@ -145,30 +190,48 @@ Visit in your browser:
 ```python
 import requests
 
-response = requests.post(
+# Scrape a product
+scrape_response = requests.post(
     "http://localhost:8000/api/scrape",
     json={"url": "https://www.amazon.com/dp/B07RJ18VMF"}
 )
-data = response.json()
-print(data)
+scrape_data = scrape_response.json()
+product_id = scrape_data['data']['product_id']
+
+# Get product with price history
+product_response = requests.get(f"http://localhost:8000/api/product/{product_id}")
+product_data = product_response.json()
+print(f"Product: {product_data['name']}")
+print(f"Price history: {len(product_data['price_history'])} entries")
 ```
 
 **JavaScript (Node.js):**
 ```javascript
-const response = await fetch('http://localhost:8000/api/scrape', {
+// Scrape a product
+const scrapeResponse = await fetch('http://localhost:8000/api/scrape', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ url: 'https://www.amazon.com/dp/B07RJ18VMF' })
 });
-const data = await response.json();
-console.log(data);
+const scrapeData = await scrapeResponse.json();
+const productId = scrapeData.data.product_id;
+
+// Get product with price history
+const productResponse = await fetch(`http://localhost:8000/api/product/${productId}`);
+const productData = await productResponse.json();
+console.log(`Product: ${productData.name}`);
+console.log(`Price history: ${productData.price_history.length} entries`);
 ```
 
 **cURL:**
 ```bash
+# Scrape a product
 curl -X POST http://localhost:8000/api/scrape \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.amazon.com/dp/B07RJ18VMF"}'
+
+# Get product with history
+curl http://localhost:8000/api/product/1
 ```
 
 ## Database Models
